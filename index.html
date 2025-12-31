@@ -4,29 +4,79 @@
     <meta charset="UTF-8">
     <title>LINE 貼圖抽獎系統</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
-        .result { background: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px; }
-        button { padding: 10px 20px; background: #00c300; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; line-height: 1.6; max-width: 900px; margin: auto; background-color: #f9f9f9; }
+        .instruction { background: #e8f5e9; padding: 20px; border-left: 5px solid #2e7d32; margin-bottom: 20px; border-radius: 5px; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+        .result-container { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
+        .result-box { flex: 1; min-width: 300px; background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { padding: 12px 24px; background: #00c300; color: white; border: none; cursor: pointer; border-radius: 5px; font-size: 16px; font-weight: bold; width: 100%; }
         button:hover { background: #009e00; }
+        h3 { border-bottom: 2px solid #00c300; padding-bottom: 5px; color: #333; }
+        .note { color: #666; font-size: 0.85em; margin-bottom: 10px; }
+        ol { padding-left: 25px; }
+        li { margin-bottom: 5px; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <h2>LINE 貼圖抽獎系統 (固定 100 份)</h2>
-    <p>請輸入名單（格式：姓名/手機，一行一筆）：</p>
-    <textarea id="inputList" placeholder="王小明/0912345678&#10;李小華/0922333444&#10;王小明/0912345678"></textarea>
-    
-    <br>
-    <button onclick="runLottery()">開始抽獎</button>
+    <div class="instruction">
+        <h2>🎁 LINE 貼圖抽獎邏輯說明</h2>
+        <ul>
+            <li><strong>獎項數量：</strong>固定 100 份。</li>
+            <li><strong>抽獎機會：</strong>每人(手機號碼)上限 <strong>2 次</strong> 機會。</li>
+            <li><strong>規則：</strong>每輪抽獎自動剔除該輪已中獎者，直到抽滿 100 份或名單用盡。</li>
+            <li><strong>隱碼規範：</strong>
+                <ul>
+                    <li>2 字中文：隱碼第 2 字（例：王O）。</li>
+                    <li>3 字中文：隱碼第 2 字（例：王O明）。</li>
+                    <li><strong>無提供：</strong>直接完整呈現，不需隱碼。</li>
+                    <li>其餘格式：顯示全名（如英文、注音、超過 3 字）。</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
 
-    <div id="summary" class="result" style="display:none;">
-        <h3>抽獎結果</h3>
-        <div id="winnerCount"></div>
-        <ol id="winnerList"></ol>
+    <p>請貼入名單（格式：<strong>姓名/手機</strong>，一行一筆）：</p>
+    <textarea id="inputList" placeholder="王小明/0912345678&#10;/0988777666 (姓名空白會顯示無提供)&#10;ㄅㄆㄇ/0911222333"></textarea>
+    
+    <button onclick="runLottery()">開始抽取 100 份獎項</button>
+
+    <div id="summary" style="display:none;">
+        <h3 id="winnerCount" style="text-align: center; color: #2e7d32; font-size: 24px;"></h3>
+        
+        <div class="result-container">
+            <div class="result-box">
+                <h3>📢 公布用名單 (隱碼版)</h3>
+                <p class="note">手機隱藏中間 4 碼，姓名依規則遮蔽（無提供除外）。</p>
+                <ol id="maskedList"></ol>
+            </div>
+
+            <div class="result-box">
+                <h3>🔑 核對用名單 (完整版)</h3>
+                <p class="note">供內部發獎對帳使用。</p>
+                <ol id="fullList"></ol>
+            </div>
+        </div>
     </div>
 
     <script>
+        function maskName(name) {
+            // 如果是「無提供」，直接回傳不處理
+            if (name === "無提供") return name;
+
+            // 判斷是否為純中文字
+            const isChinese = /^[\u4E00-\u9FA5]+$/.test(name);
+            
+            if (isChinese) {
+                if (name.length === 2) {
+                    return name[0] + "O";
+                } else if (name.length === 3) {
+                    return name[0] + "O" + name[2];
+                }
+            }
+            return name; // 1字、注音、英文、4字以上顯示原樣
+        }
+
         function runLottery() {
             const rawText = document.getElementById('inputList').value.trim();
             if (!rawText) return alert("請輸入名單");
@@ -35,21 +85,24 @@
             const totalPrizes = 100;
             let winners = [];
             
-            // 1. 整理名單與機會 (每人上限 2 次)
-            let participantsMap = {}; // { 手機號碼: {name: 姓名, count: 出現次數} }
-            
+            // 1. 資料處理
+            let participantsMap = {}; 
             lines.forEach(line => {
-                const [name, phone] = line.split('/').map(s => s.trim());
-                if (name && phone) {
-                    if (!participantsMap[phone]) {
-                        participantsMap[phone] = { name: name, count: 1 };
-                    } else if (participantsMap[phone].count < 2) {
-                        participantsMap[phone].count++;
-                    }
+                if (!line.includes('/')) return;
+                let [name, phone] = line.split('/').map(s => s.trim());
+                
+                if (!phone) return;
+                // 若姓名為空，設定為 "無提供"
+                if (!name || name.length === 0) name = "無提供";
+
+                if (!participantsMap[phone]) {
+                    participantsMap[phone] = { name: name, count: 1 };
+                } else if (participantsMap[phone].count < 2) {
+                    participantsMap[phone].count++;
                 }
             });
 
-            // 2. 建立初始抽獎池
+            // 2. 建立抽獎池
             let pool = [];
             for (let phone in participantsMap) {
                 for (let i = 0; i < participantsMap[phone].count; i++) {
@@ -57,53 +110,59 @@
                 }
             }
 
-            // 3. 開始多輪抽獎直到抽完 100 份或池子空了
+            // 3. 多輪抽獎邏輯 (確保每輪不重複，且 100 份抽完為止)
             while (winners.length < totalPrizes && pool.length > 0) {
-                let currentRoundPrizes = totalPrizes - winners.length;
-                let roundPool = [...pool];
-                let roundWinners = new Set();
-                let roundWinnersList = [];
+                let currentRoundWinners = [];
+                let roundUsedPhones = new Set();
+                let needed = totalPrizes - winners.length;
 
-                // 隨機洗牌
-                roundPool.sort(() => Math.random() - 0.5);
+                // 隨機打亂池子
+                pool.sort(() => Math.random() - 0.5);
 
-                for (let i = 0; i < roundPool.length; i++) {
-                    let candidate = roundPool[i];
-                    
-                    // 檢查「這一輪」是否已經中過，確保「剔除重複中獎者」
-                    if (!roundWinners.has(candidate.phone)) {
-                        roundWinners.add(candidate.phone);
-                        roundWinnersList.push(candidate);
-                        
-                        // 從總池中移除這次用掉的機會
-                        const indexInPool = pool.findIndex(p => p.phone === candidate.phone);
-                        pool.splice(indexInPool, 1);
-
-                        if (roundWinnersList.length === currentRoundPrizes) break;
+                let remainingPool = [];
+                for (let i = 0; i < pool.length; i++) {
+                    let p = pool[i];
+                    if (!roundUsedPhones.has(p.phone) && currentRoundWinners.length < needed) {
+                        currentRoundWinners.push(p);
+                        roundUsedPhones.add(p.phone);
+                    } else {
+                        remainingPool.push(p);
                     }
                 }
+                winners = winners.concat(currentRoundWinners);
+                pool = remainingPool;
 
-                winners = winners.concat(roundWinnersList);
-                if (roundWinnersList.length === 0) break; // 防止死循環
+                if (currentRoundWinners.length === 0) break;
             }
 
-            displayResults(winners);
+            render(winners);
         }
 
-        function displayResults(winners) {
-            const summaryDiv = document.getElementById('summary');
-            const listOl = document.getElementById('winnerList');
-            const countDiv = document.getElementById('winnerCount');
-            
-            summaryDiv.style.display = 'block';
-            listOl.innerHTML = '';
-            countDiv.innerHTML = `成功抽出 <b>${winners.length}</b> 位得獎者`;
+        function render(winners) {
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('winnerCount').innerText = `🎉 恭喜得獎者 (共 ${winners.length} 名)`;
+
+            const fullList = document.getElementById('fullList');
+            const maskedList = document.getElementById('maskedList');
+            fullList.innerHTML = '';
+            maskedList.innerHTML = '';
 
             winners.forEach(w => {
-                const li = document.createElement('li');
-                li.textContent = `${w.name} (${w.phone})`;
-                listOl.appendChild(li);
+                // 完整版
+                const liF = document.createElement('li');
+                liF.textContent = `${w.name} / ${w.phone}`;
+                fullList.appendChild(liF);
+
+                // 隱碼版
+                const liM = document.createElement('li');
+                const mName = maskName(w.name);
+                // 手機遮蔽中間 4 碼
+                const mPhone = w.phone.replace(/(\d{4})(\d{4})(\d{2})/, "$1****$3");
+                liM.textContent = `${mName} / ${mPhone}`;
+                maskedList.appendChild(liM);
             });
+
+            window.scrollTo({ top: document.getElementById('summary').offsetTop, behavior: 'smooth' });
         }
     </script>
 </body>
