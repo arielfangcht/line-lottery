@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>LINE 貼圖抽獎系統</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
+        .result { background: #f4f4f4; padding: 15px; border-radius: 5px; margin-top: 20px; }
+        button { padding: 10px 20px; background: #00c300; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #009e00; }
+    </style>
+</head>
+<body>
+
+    <h2>LINE 貼圖抽獎系統 (固定 100 份)</h2>
+    <p>請輸入名單（格式：姓名/手機，一行一筆）：</p>
+    <textarea id="inputList" placeholder="王小明/0912345678&#10;李小華/0922333444&#10;王小明/0912345678"></textarea>
+    
+    <br>
+    <button onclick="runLottery()">開始抽獎</button>
+
+    <div id="summary" class="result" style="display:none;">
+        <h3>抽獎結果</h3>
+        <div id="winnerCount"></div>
+        <ol id="winnerList"></ol>
+    </div>
+
+    <script>
+        function runLottery() {
+            const rawText = document.getElementById('inputList').value.trim();
+            if (!rawText) return alert("請輸入名單");
+
+            const lines = rawText.split('\n');
+            const totalPrizes = 100;
+            let winners = [];
+            
+            // 1. 整理名單與機會 (每人上限 2 次)
+            let participantsMap = {}; // { 手機號碼: {name: 姓名, count: 出現次數} }
+            
+            lines.forEach(line => {
+                const [name, phone] = line.split('/').map(s => s.trim());
+                if (name && phone) {
+                    if (!participantsMap[phone]) {
+                        participantsMap[phone] = { name: name, count: 1 };
+                    } else if (participantsMap[phone].count < 2) {
+                        participantsMap[phone].count++;
+                    }
+                }
+            });
+
+            // 2. 建立初始抽獎池
+            let pool = [];
+            for (let phone in participantsMap) {
+                for (let i = 0; i < participantsMap[phone].count; i++) {
+                    pool.push({ name: participantsMap[phone].name, phone: phone });
+                }
+            }
+
+            // 3. 開始多輪抽獎直到抽完 100 份或池子空了
+            while (winners.length < totalPrizes && pool.length > 0) {
+                let currentRoundPrizes = totalPrizes - winners.length;
+                let roundPool = [...pool];
+                let roundWinners = new Set();
+                let roundWinnersList = [];
+
+                // 隨機洗牌
+                roundPool.sort(() => Math.random() - 0.5);
+
+                for (let i = 0; i < roundPool.length; i++) {
+                    let candidate = roundPool[i];
+                    
+                    // 檢查「這一輪」是否已經中過，確保「剔除重複中獎者」
+                    if (!roundWinners.has(candidate.phone)) {
+                        roundWinners.add(candidate.phone);
+                        roundWinnersList.push(candidate);
+                        
+                        // 從總池中移除這次用掉的機會
+                        const indexInPool = pool.findIndex(p => p.phone === candidate.phone);
+                        pool.splice(indexInPool, 1);
+
+                        if (roundWinnersList.length === currentRoundPrizes) break;
+                    }
+                }
+
+                winners = winners.concat(roundWinnersList);
+                if (roundWinnersList.length === 0) break; // 防止死循環
+            }
+
+            displayResults(winners);
+        }
+
+        function displayResults(winners) {
+            const summaryDiv = document.getElementById('summary');
+            const listOl = document.getElementById('winnerList');
+            const countDiv = document.getElementById('winnerCount');
+            
+            summaryDiv.style.display = 'block';
+            listOl.innerHTML = '';
+            countDiv.innerHTML = `成功抽出 <b>${winners.length}</b> 位得獎者`;
+
+            winners.forEach(w => {
+                const li = document.createElement('li');
+                li.textContent = `${w.name} (${w.phone})`;
+                listOl.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
