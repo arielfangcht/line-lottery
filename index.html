@@ -4,53 +4,97 @@
     <meta charset="UTF-8">
     <title>LINE 貼圖抽獎系統</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; background: #f4f4f4; }
-        .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        textarea { width: 100%; height: 200px; box-sizing: border-box; padding: 10px; }
-        button { width: 100%; padding: 15px; background: #00c300; color: white; border: none; font-size: 18px; cursor: pointer; border-radius: 5px; }
-        .stats { display: flex; justify-content: space-around; margin: 20px 0; background: #eee; padding: 10px; }
-        .res-box { display: flex; gap: 10px; }
-        .col { flex: 1; background: white; padding: 10px; border: 1px solid #ddd; }
+        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; max-width: 900px; margin: auto; background: #f4f4f4; color: #333; }
+        .box { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .instruction { background: #e8f5e9; padding: 20px; border-left: 5px solid #00c300; margin-bottom: 25px; border-radius: 5px; }
+        .instruction h2 { margin-top: 0; color: #2e7d32; }
+        .instruction ul { padding-left: 20px; margin-bottom: 0; }
+        textarea { width: 100%; height: 200px; box-sizing: border-box; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        button { width: 100%; padding: 15px; background: #00c300; color: white; border: none; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 5px; transition: 0.3s; margin-top: 10px; }
+        button:hover { background: #009e00; }
+        .stats { display: flex; justify-content: space-around; margin: 25px 0; background: #fff; padding: 20px; border-radius: 10px; border: 1px solid #ddd; text-align: center; }
+        .stats div { flex: 1; }
+        .stats b { display: block; font-size: 24px; color: #00c300; }
+        .res-box { display: flex; gap: 20px; flex-wrap: wrap; }
+        .col { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd; }
+        .col h3 { border-bottom: 2px solid #00c300; padding-bottom: 10px; margin-top: 0; }
+        ol { padding-left: 30px; }
+        li { margin-bottom: 5px; font-family: monospace; border-bottom: 1px solid #f9f9f9; }
     </style>
 </head>
 <body>
+
+    <div class="instruction">
+        <h2>🎁 抽獎邏輯說明</h2>
+        <ul>
+            <li><strong>獎項數量：</strong>固定抽出 100 份 LINE 貼圖。</li>
+            <li><strong>參加資格：</strong>每支手機號碼上限擁有 <strong>2 次</strong> 抽獎機會（若重複填答次數超過，系統自動截斷）。</li>
+            <li><strong>抽獎流程：</strong>採多輪制隨機抽取，每一輪會剔除該輪已中獎之號碼，確保同一人在同一輪不會重複得獎，直到抽滿 100 份或名單抽空為止。</li>
+            <li><strong>隱碼規範：</strong>
+                <ul>
+                    <li>2字中文：遮蔽第2字（例：王O）。</li>
+                    <li>3字中文：遮蔽中間字（例：王O明）。</li>
+                    <li><strong>無提供：</strong>直接顯示，不執行隱碼。</li>
+                    <li>其餘格式（英文、注音、長姓名）：完整顯示全名。</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
     <div class="box">
-        <h2>LINE 貼圖抽獎</h2>
-        <p>請貼上 Excel 清單（姓名 手機）：</p>
-        <textarea id="inputList"></textarea>
-        <button onclick="draw()">開始抽獎</button>
+        <p><strong>請在此貼入 Excel 名單（姓名與手機號碼）：</strong></p>
+        <textarea id="inputList" placeholder="簡惠珍	0921667982&#10;Lee	0988187981&#10;	0922472550 (姓名空白範例)"></textarea>
+        <button onclick="draw()">立即隨機抽出 100 位得獎者</button>
     </div>
 
     <div id="result" style="display:none;">
+        <h3 style="text-align: center;">📊 抽獎統計摘要</h3>
         <div class="stats">
-            <div>總筆數：<b id="s1">0</b></div>
-            <div>人數：<b id="s2">0</b></div>
-            <div>中獎率：<b id="s3">0%</b></div>
+            <div>原始貼入總筆數<b id="s1">0</b></div>
+            <div>有效參加人數<b id="s2">0</b></div>
+            <div>重複投件人數<b id="s4">0</b></div>
+            <div>獲獎機率<b id="s3">0%</b></div>
         </div>
         <div class="res-box">
-            <div class="col"><h3>公布名單</h3><ol id="list1"></ol></div>
-            <div class="col"><h3>核對名單</h3><ol id="list2"></ol></div>
+            <div class="col"><h3>📢 公布名單 (隱碼版)</h3><ol id="list1"></ol></div>
+            <div class="col"><h3>🔑 核對清單 (完整版)</h3><ol id="list2"></ol></div>
         </div>
     </div>
 
     <script>
         function draw() {
             var text = document.getElementById('inputList').value.trim();
-            if(!text) return alert("請輸入名單");
+            if(!text) return alert("請貼入名單");
             var lines = text.split('\n');
             var map = {};
             var rawCount = 0;
+            var duplicateCount = 0;
 
             lines.forEach(function(l) {
-                var p = l.trim().split(/[\s\t]+/);
-                if(p.length < 1) return;
+                var lineText = l.trim();
+                if(!lineText) return;
+                
+                var p = lineText.split(/[\s\t]+/);
                 var tel = p[p.length-1].replace(/[^\d]/g, '');
                 if(tel.length < 8) return;
+                
                 var name = p.length > 1 ? p[0] : "無提供";
                 rawCount++;
-                if(!map[tel]) map[tel] = {n: name, c: 1};
-                else if(map[tel].c < 2) map[tel].c++;
+                
+                if(!map[tel]) {
+                    map[tel] = {n: name, c: 1, rawTotal: 1};
+                } else {
+                    map[tel].rawTotal++;
+                    if(map[tel].c < 2) map[tel].c++; // 每人上限2次機會
+                }
             });
+
+            var uniquePhones = Object.keys(map);
+            if(uniquePhones.length === 0) return alert("無法辨識名單內容，請確認格式是否正確");
+
+            // 計算重複投件人數
+            var dups = 0;
+            for(var k in map) { if(map[k].rawTotal > 1) dups++; }
 
             var pool = [];
             for(var k in map) { for(var i=0; i<map[k].c; i++) pool.push({n:map[k].n, t:k}); }
@@ -71,18 +115,24 @@
 
             document.getElementById('result').style.display = 'block';
             document.getElementById('s1').innerText = rawCount;
-            var uniqueNum = Object.keys(map).length;
-            document.getElementById('s2').innerText = uniqueNum;
-            document.getElementById('s3').innerText = ((winners.length/uniqueNum)*100).toFixed(1) + "%";
+            document.getElementById('s2').innerText = uniquePhones.length;
+            document.getElementById('s4').innerText = dups;
+            document.getElementById('s3').innerText = (uniquePhones.length > 0 ? Math.min(100, (winners.length/uniquePhones.length)*100).toFixed(1) : 0) + "%";
 
             var l1 = document.getElementById('list1'), l2 = document.getElementById('list2');
             l1.innerHTML = ''; l2.innerHTML = '';
             winners.forEach(function(w) {
-                var mName = (w.n.length==2 && /^[\u4E00-\u9FA5]+$/.test(w.n)) ? w.n[0]+"O" : (w.n.length==3 && /^[\u4E00-\u9FA5]+$/.test(w.n)) ? w.n[0]+"O"+w.n[2] : w.n;
-                var mTel = w.t.substring(0,4)+"****"+w.t.substring(8);
+                var isChi = /^[\u4E00-\u9FA5]+$/.test(w.n);
+                var mName = w.n;
+                if(w.n !== "無提供" && isChi) {
+                    if(w.n.length == 2) mName = w.n[0]+"O";
+                    else if(w.n.length == 3) mName = w.n[0]+"O"+w.n[2];
+                }
+                var mTel = w.t.replace(/(\d{4})(\d{4})(\d{2})/, "$1****$3");
                 l1.innerHTML += "<li>"+mName+" / "+mTel+"</li>";
                 l2.innerHTML += "<li>"+w.n+" / "+w.t+"</li>";
             });
+            window.scrollTo({ top: document.getElementById('result').offsetTop - 20, behavior: 'smooth' });
         }
     </script>
 </body>
