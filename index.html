@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>LINE 貼圖抽獎系統</title>
+    <title>抽獎系統</title>
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; max-width: 900px; margin: auto; background: #f4f4f4; color: #333; }
         .box { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -27,23 +27,23 @@
     <div class="instruction">
         <h2>🎁 抽獎邏輯說明</h2>
         <ul>
-            <li><strong>獎項數量：</strong>固定抽出 100 份 LINE 貼圖。</li>
-            <li><strong>參加資格：</strong>每支手機號碼上限擁有 <strong>2 次</strong> 抽獎機會（若重複填答次數超過，系統自動截斷）。</li>
-            <li><strong>抽獎流程：</strong>採多輪制隨機抽取，每一輪會剔除該輪已中獎之號碼，確保同一人在同一輪不會重複得獎，直到抽滿 100 份或名單抽空為止。</li>
+            <li><strong>獎項數量：</strong>固定抽出 100 份。</li>
+            <li><strong>參加資格：</strong>每支識別碼（手機號碼）上限擁有 <strong>2 次</strong> 抽獎機會（超過部分自動截斷）。</li>
+            <li><strong>抽獎流程：</strong>採多輪制隨機抽取，每一輪會剔除該輪已中獎之號碼，直到抽滿 100 份或名單抽空為止。</li>
             <li><strong>隱碼規範：</strong>
                 <ul>
-                    <li>2字中文：遮蔽第2字（例：王O）。</li>
-                    <li>3字中文：遮蔽中間字（例：王O明）。</li>
+                    <li>2字中文：遮蔽第2字（例：○●）。</li>
+                    <li>3字中文：遮蔽中間字（例：○●○）。</li>
                     <li><strong>無提供：</strong>直接顯示，不執行隱碼。</li>
-                    <li>其餘格式（英文、注音、長姓名）：完整顯示全名。</li>
+                    <li>其餘格式（英文、符號、長姓名）：完整顯示全名。</li>
                 </ul>
             </li>
         </ul>
     </div>
 
     <div class="box">
-        <p><strong>請在此貼入 Excel 名單（姓名與手機號碼）：</strong></p>
-        <textarea id="inputList" placeholder="簡惠珍	0921667982&#10;Lee	0988187981&#10;	0922472550 (姓名空白範例)"></textarea>
+        <p><strong>請在此貼入名單資料（姓名與手機號碼）：</strong></p>
+        <textarea id="inputList" placeholder="姓名A	0900111222&#10;姓名B	0900333444&#10;	0900555666 (此為姓名空白示意)"></textarea>
         <button onclick="draw()">立即隨機抽出 100 位得獎者</button>
     </div>
 
@@ -64,11 +64,10 @@
     <script>
         function draw() {
             var text = document.getElementById('inputList').value.trim();
-            if(!text) return alert("請貼入名單");
+            if(!text) return alert("請輸入名單資料");
             var lines = text.split('\n');
             var map = {};
             var rawCount = 0;
-            var duplicateCount = 0;
 
             lines.forEach(function(l) {
                 var lineText = l.trim();
@@ -85,14 +84,13 @@
                     map[tel] = {n: name, c: 1, rawTotal: 1};
                 } else {
                     map[tel].rawTotal++;
-                    if(map[tel].c < 2) map[tel].c++; // 每人上限2次機會
+                    if(map[tel].c < 2) map[tel].c++; 
                 }
             });
 
             var uniquePhones = Object.keys(map);
-            if(uniquePhones.length === 0) return alert("無法辨識名單內容，請確認格式是否正確");
+            if(uniquePhones.length === 0) return alert("無法辨識輸入內容，請確認格式");
 
-            // 計算重複投件人數
             var dups = 0;
             for(var k in map) { if(map[k].rawTotal > 1) dups++; }
 
