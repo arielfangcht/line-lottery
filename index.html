@@ -2,137 +2,37 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>LINE 貼圖抽獎系統 - 進階版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 貼圖抽獎系統</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; line-height: 1.6; max-width: 1000px; margin: auto; background-color: #f0f2f5; }
-        .instruction { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-top: 6px solid #00c300; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: #fff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #ddd; }
-        .stat-card span { display: block; font-size: 24px; font-weight: bold; color: #00c300; }
-        textarea { width: 100%; height: 250px; margin-bottom: 15px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; resize: vertical; }
-        textarea:focus { border-color: #00c300; outline: none; }
-        .result-container { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
-        .result-box { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        button { padding: 15px; background: #00c300; color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 18px; font-weight: bold; width: 100%; transition: 0.3s; }
-        button:hover { background: #009e00; box-shadow: 0 4px 12px rgba(0,195,0,0.3); }
-        h3 { border-bottom: 2px solid #00c300; padding-bottom: 10px; color: #333; margin-top: 0; }
-        .note { color: #666; font-size: 0.85em; margin-bottom: 10px; }
-        ol { padding-left: 30px; }
-        li { margin-bottom: 6px; font-family: 'Courier New', Courier, monospace; border-bottom: 1px dashed #eee; padding-bottom: 2px; }
-    </style>
-</head>
-<body>
+        :root { --line-green: #00c300; --line-dark: #009e00; }
+        body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; padding: 20px; line-height: 1.6; max-width: 1000px; margin: auto; background-color: #f4f7f6; color: #333; }
+        
+        /* 說明區塊 */
+        .instruction { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border-top: 6px solid var(--line-green); }
+        .instruction h2 { margin-top: 0; color: var(--line-green); }
+        .instruction ul { padding-left: 20px; }
+        
+        /* 輸入區塊 */
+        .input-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        textarea { width: 100%; height: 250px; margin-bottom: 15px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; line-height: 1.5; resize: vertical; }
+        textarea:focus { border-color: var(--line-green); outline: none; box-shadow: 0 0 0 3px rgba(0,195,0,0.1); }
+        
+        button { padding: 15px; background: var(--line-green); color: white; border: none; cursor: pointer; border-radius: 8px; font-size: 18px; font-weight: bold; width: 100%; transition: all 0.2s ease; }
+        button:hover { background: var(--line-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,195,0,0.3); }
+        button:active { transform: translateY(0); }
 
-    <div class="instruction">
-        <h2>🎁 LINE 貼圖抽獎系統</h2>
-        <p><strong>抽獎規則說明：</strong></p>
-        <ul>
-            <li><strong>名單輸入：</strong>支援從 Excel 直接複製貼上（姓名與手機間有空格或 Tab 均可）。</li>
-            <li><strong>機會上限：</strong>每支手機號碼最多擁有 <strong>2 次</strong> 抽獎機會。</li>
-            <li><strong>重複中獎：</strong>同一個人（手機號碼）在同一輪中不會重複得獎，直到 100 份抽完。</li>
-            <li><strong>隱碼規範：</strong>2-3字中文執行隱碼；「無提供」及特殊格式則完整顯示。</li>
-        </ul>
-    </div>
+        /* 統計看板 */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 25px 0; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; text-align: center; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .stat-card small { color: #888; display: block; margin-bottom: 5px; }
+        .stat-card span { display: block; font-size: 28px; font-weight: 800; color: var(--line-green); }
 
-    <p>請在此貼入名單（支援 Excel 直接貼上，姓名與手機須分列）：</p>
-    <textarea id="inputList" placeholder="簡惠珍	0921667982&#10;Lee	0988187981&#10;	0922472550 (姓名空白範例)"></textarea>
-    
-    <button onclick="runLottery()">開始計算統計並抽出 100 份獎項</button>
-
-    <div id="summary" style="display:none; margin-top: 30px;">
-        <h3 style="text-align: center;">📊 抽獎摘要統計</h3>
-        <div class="stat-grid">
-            <div class="stat-card">原始資料總數<span id="statTotal">0</span></div>
-            <div class="stat-card">有效參加人數<span id="statUnique">0</span></div>
-            <div class="stat-card">重複投件者<span id="statDup">0</span></div>
-            <div class="stat-card">預估中獎機率<span id="statRate">0%</span></div>
-        </div>
-
-        <div class="result-container">
-            <div class="result-box">
-                <h3>📢 公布用名單 (隱碼版)</h3>
-                <p class="note">已自動處理中文字隱碼及手機遮蔽。</p>
-                <ol id="maskedList"></ol>
-            </div>
-            <div class="result-box">
-                <h3>🔑 核對用名單 (完整版)</h3>
-                <p class="note">供內部確認發獎使用。</p>
-                <ol id="fullList"></ol>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function maskName(name) {
-            if (name === "無提供") return name;
-            const isChinese = /^[\u4E00-\u9FA5]+$/.test(name);
-            if (isChinese) {
-                if (name.length === 2) return name[0] + "O";
-                if (name.length === 3) return name[0] + "O" + name[2];
-            }
-            return name;
-        }
-
-        function runLottery() {
-            const rawText = document.getElementById('inputList').value.trim();
-            if (!rawText) return alert("請貼入抽獎名單");
-
-            const lines = rawText.split('\n');
-            const totalPrizes = 100;
-            
-            let rawCount = 0;
-            let participantsMap = {}; // 用手機當 key
-            let phoneToNames = {}; // 存手機對應的所有姓名，用於統計
-
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return;
-                
-                rawCount++;
-                // 支援 Tab (\t), 斜線, 或多個空格分隔
-                let parts = trimmedLine.split(/\t|\/|\s{2,}/);
-                let name = "", phone = "";
-
-                if (parts.length >= 2) {
-                    name = parts[0].trim();
-                    phone = parts[1].trim();
-                } else {
-                    // 處理只有手機或格式不規則的情況
-                    phone = parts[0].trim();
-                }
-
-                // 清理手機號碼中的非數字(如空格或連字號)
-                phone = phone.replace(/[^\d]/g, '');
-                if (!phone) return;
-
-                if (!name || name.length === 0) name = "無提供";
-
-                if (!participantsMap[phone]) {
-                    participantsMap[phone] = { name: name, count: 1 };
-                    phoneToNames[phone] = [name];
-                } else {
-                    if (participantsMap[phone].count < 2) {
-                        participantsMap[phone].count++;
-                    }
-                    phoneToNames[phone].push(name);
-                }
-            });
-
-            // 統計資料
-            const uniquePhones = Object.keys(participantsMap);
-            const duplicateCount = uniquePhones.filter(p => phoneToNames[p].length > 1).length;
-            
-            // 建立抽獎池
-            let pool = [];
-            for (let phone in participantsMap) {
-                for (let i = 0; i < participantsMap[phone].count; i++) {
-                    pool.push({ name: participantsMap[phone].name, phone: phone });
-                }
-            }
-
-            // 執行抽獎
-            let winners = [];
-            let tempPool = [...pool];
-            while (winners.length < totalPrizes && tempPool.length > 0) {
-                let roundWinners = [];
-                let roundUsed
+        /* 結果區塊 */
+        .result-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+        .result-box { flex: 1; min-width: 320px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .result-box h3 { border-bottom: 2px solid var(--line-green); padding-bottom: 10px; margin-top: 0; }
+        .note { color: #777; font-size: 0.85em; margin: 10px 0; background: #f9f9f9; padding: 8px; border-radius: 4px; }
+        
+        ol { padding-left: 35px; }
+        li { margin-bottom: 8px; font-family: "Consolas", "Monaco", monospace; border-bottom: 1px solid #f
